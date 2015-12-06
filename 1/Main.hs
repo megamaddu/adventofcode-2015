@@ -5,7 +5,7 @@ import Control.Applicative ((<|>))
 main :: IO ()
 main = do
   input <- getLine
-  print $ runCommands $ interpInput <$> input
+  putStrLn $ showResult . runCommands $ interpInput <$> input
   where
     interpInput :: Char -> ElevatorCommand
     interpInput '(' = Up
@@ -14,38 +14,28 @@ main = do
 
 data ElevatorCommand = Up | Down
 
-data ElevatorResult = ElevatorResult
-  { eFloor :: Integer
-  , eSteps :: Integer
-  , eBasementEntryStep :: Maybe Integer
-  }
+type Floor = Integer
 
-instance Show ElevatorResult where
-  show r = "Floor: " ++ show (eFloor r) ++ " (" ++ show (eSteps r) ++ " steps total, "
-        ++ maybe "never entered basement" ("basement entered on step " ++) (show <$> eBasementEntryStep r)
-        ++ ")"
+type Step = Integer
+
+type BasementEntryStep = Maybe Step
+
+type ElevatorResult = (Floor, Step, BasementEntryStep)
 
 runCommands :: [ElevatorCommand] -> ElevatorResult
-runCommands = foldl step ElevatorResult { eFloor = 0, eSteps = 0, eBasementEntryStep = Nothing }
+runCommands = foldl step (0, 0, Nothing)
   where
     step :: ElevatorResult -> ElevatorCommand -> ElevatorResult
-    step r c = ElevatorResult
-      { eFloor = nextFloor
-      , eSteps = nextStepCount
-      , eBasementEntryStep = nextBasementEntryStep
-      }
+    step (f, s, b) c = (nextFloor, nextStepCount, nextBasementEntryStep)
       where
-        nextFloor :: Integer
-        nextFloor = interpCommand (eFloor r) c
-
-        nextStepCount :: Integer
-        nextStepCount = 1 + eSteps r
-
-        nextBasementEntryStep :: Maybe Integer
-        nextBasementEntryStep =
-          eBasementEntryStep r <|>
-            if nextFloor < 0 then Just nextStepCount else Nothing
+        nextFloor = interpCommand f c
+        nextStepCount = 1 + s
+        nextBasementEntryStep = b <|> if nextFloor < 0 then Just nextStepCount else Nothing
 
     interpCommand :: Integer -> ElevatorCommand -> Integer
-    interpCommand x Up      = x + 1
-    interpCommand x Down    = x - 1
+    interpCommand x Up   = x + 1
+    interpCommand x Down = x - 1
+
+showResult :: ElevatorResult -> String
+showResult (f, s, b) = "Floor: " ++ show f ++ " (" ++ show s ++ " steps total, "
+  ++ maybe "never entered basement" ("basement entered on step " ++) (show <$> b) ++ ")"
