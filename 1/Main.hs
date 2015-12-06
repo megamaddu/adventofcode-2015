@@ -1,26 +1,51 @@
 module Main where
 
+import Control.Applicative ((<|>))
+
 main :: IO ()
 main = do
   input <- getLine
-  print $ calcFloor input
-  print $ calcStepsToBasementEntry input
-
-calcFloor :: String -> Integer
-calcFloor = foldl interp 0
-
-calcStepsToBasementEntry :: String -> Integer
-calcStepsToBasementEntry = step 1 0
+  print $ runCommands $ interpInput <$> input
   where
-    step :: Integer -> Integer -> String -> Integer
-    step _ _ ""     = 0
-    step c t (x:xs) =
-      if t' < 0
-        then c
-        else step (c + 1) t' xs
-      where t' = interp t x
+    interpInput :: Char -> ElevatorCommand
+    interpInput '(' = Up
+    interpInput ')' = Down
+    interpInput x   = error $ "invalid command: " ++ [x]
 
-interp :: Integer -> Char -> Integer
-interp x '(' = x + 1
-interp x ')' = x - 1
-interp x _   = x
+data ElevatorCommand = Up | Down
+
+data ElevatorResult = ElevatorResult
+  { eFloor :: Integer
+  , eSteps :: Integer
+  , eBasementEntryStep :: Maybe Integer
+  }
+
+instance Show ElevatorResult where
+  show r = "Floor: " ++ show (eFloor r) ++ " (" ++ show (eSteps r) ++ " steps total, "
+        ++ maybe "never entered basement" ("basement entered on step " ++) (show <$> eBasementEntryStep r)
+        ++ ")"
+
+runCommands :: [ElevatorCommand] -> ElevatorResult
+runCommands = foldl step ElevatorResult { eFloor = 0, eSteps = 0, eBasementEntryStep = Nothing }
+  where
+    step :: ElevatorResult -> ElevatorCommand -> ElevatorResult
+    step r c = ElevatorResult
+      { eFloor = nextFloor
+      , eSteps = nextStepCount
+      , eBasementEntryStep = nextBasementEntryStep
+      }
+      where
+        nextFloor :: Integer
+        nextFloor = interpCommand (eFloor r) c
+
+        nextStepCount :: Integer
+        nextStepCount = 1 + eSteps r
+
+        nextBasementEntryStep :: Maybe Integer
+        nextBasementEntryStep =
+          eBasementEntryStep r <|>
+            if nextFloor < 0 then Just nextStepCount else Nothing
+
+    interpCommand :: Integer -> ElevatorCommand -> Integer
+    interpCommand x Up      = x + 1
+    interpCommand x Down    = x - 1
